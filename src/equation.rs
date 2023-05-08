@@ -21,14 +21,29 @@
  *   SOFTWARE.
  */
 
-use std::fmt::Display;
+use core::panic;
+use std::{fmt::Display};
 
-use pest::{iterators::Pair, Parser};
+use pest::{iterators::{Pair, Pairs}, Parser, pratt_parser::{PrattParser, Op, Assoc}};
 
-use crate::complex::Complex;
+use crate::{complex::Complex, functions::factorial};
 
+#[derive(Debug)]
+pub enum Error {
+    ParseError
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        todo!()
+    }
+}
+
+impl std::error::Error for Error {}
+
+#[derive(Debug)]
 pub struct Equation {
-    base: TokenNode
+    base: Node
 }
 
 impl Equation {
@@ -38,88 +53,49 @@ impl Equation {
         }
     }
 
-    pub fn sum(&self) -> Complex {
+    pub fn sum(&self) -> Result<Node, Error> {
         self.base.sum()
     }
-
-    pub fn to_string(&self) -> String {
-        self.base.to_string()
-    }
 }
 
-struct TokenNode {
-    token: Token,
-    lhs: Option<Box<TokenNode>>,
-    rhs: Option<Box<TokenNode>>,
-}
+#[derive(Debug, Copy, Clone)]
 
-impl TokenNode {
-    fn with_token(token: Token) -> TokenNode {
-        TokenNode {
-            token,
-            lhs: None,
-            rhs: None,
-        }
-    }
-
-    fn sum(&self) -> Complex {
-        let token = self.token;
-        match token {
-            Token::Plus     => return self.lhs.as_ref().unwrap().sum() + self.rhs.as_ref().unwrap().sum(),
-            Token::Minus    => return self.lhs.as_ref().unwrap().sum() - self.rhs.as_ref().unwrap().sum(),
-            Token::Multiply => return self.lhs.as_ref().unwrap().sum() * self.rhs.as_ref().unwrap().sum(),
-            Token::Divide   => return self.lhs.as_ref().unwrap().sum() / self.rhs.as_ref().unwrap().sum(),
-            Token::Power    => return self.lhs.as_ref().unwrap().sum().powf(self.rhs.as_ref().unwrap().sum()),
-
-            Token::Function(f) => return f.run(self.rhs.as_ref().unwrap().sum()),
-    
-            Token::Num(num) => return num,
-            _ => {
-                println!("Error while sumating the equation!!!");
-                return Complex {real: 0.0, img: 0.0}
-            }
-        }
-    }
-
-    fn to_string(&self) -> String {
-        let token = self.token;
-        match token {
-            Token::Plus     => format!("{} + {}", self.lhs.as_ref().unwrap().to_string(), self.rhs.as_ref().unwrap().to_string()),
-            Token::Minus    => format!("{} - {}", self.lhs.as_ref().unwrap().to_string(), self.rhs.as_ref().unwrap().to_string()),
-            Token::Multiply => format!("{} * {}", self.lhs.as_ref().unwrap().to_string(), self.rhs.as_ref().unwrap().to_string()),
-            Token::Divide   => format!("{} / {}", self.lhs.as_ref().unwrap().to_string(), self.rhs.as_ref().unwrap().to_string()),
-            Token::Power    => format!("{} ^ {}", self.lhs.as_ref().unwrap().to_string(), self.rhs.as_ref().unwrap().to_string()),
-
-            Token::LeftParens    => format!("("),
-            Token::RightParens   => format!(")"),
-
-            Token::Function(f) => format!("{} {}", f, self.rhs.as_ref().unwrap().to_string()),
-    
-            Token::Num(num) => num.to_string(),
-            _ => {
-                println!("Error while crating the string!!!");
-                return String::new()
-            }
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-
-enum Function {
+pub enum Function {
     Sin,
     Cos,
     Tan,
+    ArcSin,
+    ArcCos,
+    ArcTan,
 }
 
 impl Function {
-    fn run(&self, x: Complex) -> Complex {
-        match self {
-            /*Self::Sin => x.sin(),
-            Self::Cos => x.cos(),
-            Self::Tan => x.tan(),*/
-            _ => panic!(),
-        }
+    fn eval(&self, args: &Vec<Node>) -> Result<Node, Error> {
+        let val = match args[..] {
+            [Node::Real(num)] => Node::Real(match self {
+                Self::Sin => num.sin(),
+                Self::Cos => num.cos(),
+                Self::Tan => num.tan(),
+                Self::ArcSin => num.asin(),
+                Self::ArcCos => num.acos(),
+                Self::ArcTan => num.atan(),
+            }),
+            _ => Err(Error::ParseError)?
+        };
+
+        Ok(val)
+    }
+
+    fn from_string(s: &str) -> Result<Self, Error> {
+        Ok(match s {
+            "sin" => Self::Sin,
+            "cos" => Self::Cos,
+            "tan" => Self::Tan,
+            "arcsin" => Self::ArcSin,
+            "arccos" => Self::ArcCos,
+            "arctan" => Self::ArcTan,
+            _ => Err(Error::ParseError)?
+        })
     }
 }
 
@@ -129,109 +105,152 @@ impl Display for Function {
             Self::Sin => write!(f, "sin"),
             Self::Cos => write!(f, "cos"),
             Self::Tan => write!(f, "tan"),
+            Self::ArcSin => write!(f, "arcsin"),
+            Self::ArcCos => write!(f, "arccos"),
+            Self::ArcTan => write!(f, "arctan"),
         }
     }
 }
 
-#[derive(Copy, Clone)]
-enum Token {
-    None,
-
+#[derive(Debug, Copy, Clone)]
+pub enum PrefixOperation {
     Plus,
-    Minus,
-    Multiply,
-    Divide,
-    Power,
-
-    LeftParens,
-    RightParens,
-
-    Function(Function),
-
-    Equals,
-    
-    Num(Complex)
+    Neg,
 }
 
-impl Token {
-    fn print(&self) {
-        match self {
-            Token::None => print!("None!"),
-    
-            Token::Plus     => print!("+"),
-            Token::Minus    => print!("-"),
-            Token::Multiply => print!("*"),
-            Token::Divide   => print!("/"),
-            Token::Power    => print!("^"),
-    
-            Token::LeftParens  => print!("("),
-            Token::RightParens => print!(")"),
-    
-            Token::Equals => print!("="),
-    
-            Token::Num(num) => print!("{}", num),
-
-            Token::Function(f) => print!("{}", f),
-        }
+impl PrefixOperation {
+    fn eval(self, val: &Node) -> Result<Node, Error> {
+        Ok(match val {
+            Node::Real(val) => 
+                match self {
+                    Self::Plus => Node::Real(*val),
+                    Self::Neg => Node::Real(-*val),
+                }
+            _ => Err(Error::ParseError)?,
+        })
     }
 }
 
-impl Display for Token {
+#[derive(Debug, Copy, Clone)]
+pub enum BinaryOperation {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Pow,
+    Mod,
+}
+
+impl BinaryOperation {
+    fn eval(self, lhs: &Node, rhs: &Node) -> Result<Node, Error> {
+        Ok(match (lhs, rhs) {
+            (Node::Real(lhs), Node::Real(rhs)) => 
+                Node::Real(match self {
+                    BinaryOperation::Add => lhs + rhs,
+                    BinaryOperation::Sub => lhs - rhs,
+                    BinaryOperation::Mul => lhs * rhs,
+                    BinaryOperation::Div => lhs / rhs,
+                    BinaryOperation::Mod => lhs.rem_euclid(*rhs),
+                    BinaryOperation::Pow => lhs.powf(*rhs),
+                }),
+            (Node::Complex(lhs), Node::Complex(rhs)) =>
+                Node::Complex(match self {
+                    BinaryOperation::Add => *lhs + *rhs,
+                    BinaryOperation::Sub => *lhs - *rhs,
+                    BinaryOperation::Mul => *lhs * *rhs,
+                    BinaryOperation::Div => *lhs / *rhs,
+                    BinaryOperation::Mod => Err(Error::ParseError)?,
+                    BinaryOperation::Pow => lhs.powf(*rhs),
+                }),
+            (Node::Real(lhs), Node::Complex(rhs)) =>
+                Node::Complex(match self {
+                    BinaryOperation::Add => Complex { real: *lhs, img: 0.0 } + *rhs,
+                    BinaryOperation::Sub => Complex { real: *lhs, img: 0.0 } - *rhs,
+                    BinaryOperation::Mul => Complex { real: *lhs, img: 0.0 } * *rhs,
+                    BinaryOperation::Div => Complex { real: *lhs, img: 0.0 } / *rhs,
+                    BinaryOperation::Mod => Err(Error::ParseError)?,
+                    BinaryOperation::Pow => Complex { real: *lhs, img: 0.0 }.powf(*rhs),
+                }),
+            (Node::Complex(lhs), Node::Real(rhs)) =>
+                Node::Complex(match self {
+                    BinaryOperation::Add => *lhs + Complex { real: *rhs, img: 0.0 },
+                    BinaryOperation::Sub => *lhs - Complex { real: *rhs, img: 0.0 },
+                    BinaryOperation::Mul => *lhs * Complex { real: *rhs, img: 0.0 },
+                    BinaryOperation::Div => *lhs / Complex { real: *rhs, img: 0.0 },
+                    BinaryOperation::Mod => Err(Error::ParseError)?,
+                    BinaryOperation::Pow => lhs.powf(Complex { real: *rhs, img: 0.0 }),
+                }),
+            _ => Err(Error::ParseError)?,
+        })
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum PostfixOperation {
+    Factorial
+}
+
+impl PostfixOperation {
+    fn eval(self, val: &Node) -> Result<Node, Error> {
+        Ok(match val {
+            Node::Real(val) => 
+                match self {
+                    Self::Factorial => Node::Real(factorial(*val as usize) as f64),
+                }
+            _ => Err(Error::ParseError)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Node {
+    Real(f64),
+    Complex(Complex),
+    PrefixOperation{op: PrefixOperation, rhs: Box<Node>},
+    BinaryOperation{lhs: Box<Node>, op: BinaryOperation, rhs: Box<Node>},
+    PostOperation{lhs: Box<Node>, op: PostfixOperation},
+    Function(Function, Vec<Node>),
+    Equals,
+}
+
+impl Node {
+    fn sum(&self) -> Result<Node, Error> {
+        Ok(match self {
+            Node::Real(val) => Node::Real(*val),
+            Node::Complex(val) => Node::Complex(*val),
+            Node::PrefixOperation { op, rhs } => op.eval(&rhs.sum()?)?,
+            Node::BinaryOperation { lhs, op, rhs } => op.eval(&lhs.sum()?, &rhs.sum()?)?,
+            Node::PostOperation { lhs, op } => op.eval(&lhs.sum()?)?,
+            Node::Function(func, args) => func.eval(&args.into_iter().map(|node| node.sum()).collect::<Result<Vec<Node>, Error>>()?)?,
+            Node::Equals => todo!(),
+        })
+    }
+}
+
+impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::None => write!(f, "None!"),
-    
-            Token::Plus     => write!(f, "+"),
-            Token::Minus    => write!(f, "-"),
-            Token::Multiply => write!(f, "*"),
-            Token::Divide   => write!(f, "/"),
-            Token::Power    => write!(f, "^"),
-    
-            Token::LeftParens  => write!(f, "("),
-            Token::RightParens => write!(f, ")"),
-    
-            Token::Equals => write!(f, "="),
-    
-            Token::Num(num) => write!(f, "{}", num),
-
-            Token::Function(func) => write!(f, "{}", func),
+            Node::Real(val) => f.write_fmt(format_args!("{}", val)),
+            Node::Complex(val) => f.write_fmt(format_args!("{}", val)),
+            Node::PrefixOperation { op, rhs } => todo!(),
+            Node::BinaryOperation { lhs, op, rhs } => todo!(),
+            Node::PostOperation { lhs, op } => todo!(),
+            Node::Function(_, _) => todo!(),
+            Node::Equals => todo!(),
         }
     }
 }
 
-fn check_fn(chars: &[char], index: &mut usize) -> Token {
-    const FUNCTIONS: [&str; 3] = ["sin", "cos", "tan"];
-    
-    let mut str = String::new();
+fn tokenize(part: &str) -> Node {
+    let parser = PrattParser::<Rule>::new()
+    .op(Op::infix(Rule::Add, Assoc::Left) | Op::infix(Rule::Sub, Assoc::Left))
+    .op(Op::infix(Rule::Mul, Assoc::Left) | Op::infix(Rule::Div, Assoc::Left) | Op::infix(Rule::Mod, Assoc::Left))
+    .op(Op::infix(Rule::Pow, Assoc::Left))
+    .op(Op::prefix(Rule::Plus) | Op::prefix(Rule::Neg))
+    .op(Op::postfix(Rule::Factorial));
 
-    let mut fine = true;
-    while fine {
-        fine = false;
-        
-        str.push(chars[*index]);
 
-        for f in FUNCTIONS.iter() {
-            if f.starts_with(&str) {
-                fine = true;
-            }
 
-            if f == &str {
-                match *f {
-                    "sin" => return Token::Function(Function::Sin),
-                    "cos" => return Token::Function(Function::Cos),
-                    "tan" => return Token::Function(Function::Tan),
-                    _ => panic!(),
-                }
-            }
-        }
-        
-        *index += 1;
-    }
-
-    Token::None
-}
-
-fn tokenize(part: &str) -> TokenNode {
     let mut pairs = match InternalParser::parse(Rule::Program, part) {
         Ok(pairs) => pairs,
         Err(error) => {
@@ -239,94 +258,104 @@ fn tokenize(part: &str) -> TokenNode {
         }
     };
 
-    parse_expr(pairs.next().unwrap().into_inner().next().unwrap())
+    parse_expr(pairs.next().unwrap().into_inner(), &parser).unwrap()
 }
 
-fn parse_expr(pair: Pair<Rule>) -> TokenNode {
-    match pair.as_rule() {
-        Rule::Complex => {
-            let mut pairs = pair.into_inner();
-            let pair = pairs.next().unwrap();
-            
-            let val = match pair.as_rule() {
-                Rule::Real => {
-                    let val = pair.as_str().trim().parse::<f64>().expect(&format!("Found an invalid number : [{}]", pair.as_str().trim()));
+fn parse_complex(mut pairs: Pairs<Rule>) -> Result<Node, Error> {
+    let pair = pairs.next().unwrap(); 
+    let val = match pair.as_rule() {
+        Rule::Real => {
+            let val = pair.as_str().trim().parse::<f64>().expect(&format!("Found an invalid number : [{}]", pair.as_str().trim()));
 
-                    let img = match pairs.next() {
-                        Some(pair) => match pair.as_rule() {
-                            Rule::ImgUnit => {
-                                1.0
-                            },
-                            _ => panic!(),
-                        },
-                        None => { 0.0 }
-                    };
-
-                    Complex {real: val * (1.0-img), img: val * img}
-                },
-                Rule::ImgUnit => {
-                    Complex {real: 0.0, img: 1.0}
-                },
-                _ => panic!(),
-            };
-
-            TokenNode {
-                token: Token::Num(val),
-                lhs: None,
-                rhs: None,
-            }
-        },
-        Rule::Expr => {
-            let mut pairs = pair.into_inner();
-            let mut lhs = parse_expr(pairs.next().unwrap());
-            let mut op;
-            let mut rhs;
-
-            while let Some(pair) = pairs.next() {
-                match pair.as_rule() {
-                    Rule::BinaryOperator => {
-                        op = match pair.as_str().trim() {
-                            "+" => Token::Plus,
-                            "-" => Token::Minus,
-                            "*" => Token::Multiply,
-                            "/" => Token::Divide,
-                            "^" => Token::Power,
-                            op => panic!("invalid operator: {}", op)
-                        };
+            let img = match pairs.next() {
+                Some(pair) => match pair.as_rule() {
+                    Rule::ImgUnit => {
+                        1.0
                     },
                     _ => panic!(),
-                }
-                let pair = pairs.next().unwrap();
-                rhs = parse_expr(pair);
-                lhs = TokenNode { token: op, lhs: Some(Box::new(lhs)), rhs: Some(Box::new(rhs)) };
-            }
-
-            lhs
-        }
-        Rule::UnaryExpr => {
-            let mut pairs = pair.into_inner();
-            let pair = pairs.next().unwrap();
-            let op;
-            match pair.as_rule() {
-                Rule::UnaryOperator => {
-                    op = match pair.as_str().trim() {
-                        "+" => Token::Plus,
-                        "-" => Token::Minus,
-                        op => panic!("invalid operator: {}", op)
-                    };
                 },
-                _ => panic!(),
-            }
-            let pair = pairs.next().unwrap();
-            let expr = parse_expr(pair);
+                None => { 0.0 }
+            };
 
-            TokenNode {token: op, lhs: Some(Box::new(TokenNode {token: Token::Num(Complex {real: 0.0, img: 0.0}), lhs: None, rhs: None })), rhs: Some(Box::new(expr))}
-        }
-        Rule::NonBinaryExpr => {
-            parse_expr(pair.into_inner().next().unwrap())
-        }
-        _ => panic!("{:?}", pair.as_rule()),
+            Complex {real: val * (1.0-img), img: val * img}
+        },
+        Rule::ImgUnit => {
+            Complex {real: 0.0, img: 1.0}
+        },
+        _ => Err(Error::ParseError)?,
+    };
+    Ok(Node::Complex(val))
+}
+
+fn parse_real(pair: Pair<Rule>) -> Result<Node, Error> {
+    let val = pair.as_str().trim().parse::<f64>().expect(&format!("Found an invalid number : [{}]", pair.as_str().trim()));
+    Ok(Node::Real(val))
+}
+
+
+fn parse_prefix(pair: Pair<Rule>) -> Result<PrefixOperation, Error> {
+    match pair.as_rule() {
+        Rule::Plus => Ok(PrefixOperation::Plus),
+        Rule::Neg => Ok(PrefixOperation::Neg),
+        _ => panic!()
     }
+}
+
+fn parse_infix(pair: Pair<Rule>) -> Result<BinaryOperation, Error> {
+    match pair.as_rule() {
+        Rule::Add => Ok(BinaryOperation::Add),
+        Rule::Sub => Ok(BinaryOperation::Sub),
+        Rule::Mul => Ok(BinaryOperation::Mul),
+        Rule::Div => Ok(BinaryOperation::Div),
+        Rule::Mod => Ok(BinaryOperation::Mod),
+        Rule::Pow => Ok(BinaryOperation::Pow),
+        
+        _ => panic!()
+    }
+}
+
+fn parse_postfix(pair: Pair<Rule>) -> Result<PostfixOperation, Error> {
+    match pair.as_rule() {
+        Rule::Factorial => Ok(PostfixOperation::Factorial),
+        _ => panic!()
+    }
+}
+
+fn parse_function_call(mut pairs: Pairs<Rule>, parser: &PrattParser<Rule>) -> Result<Node, Error> {
+    let function_name = pairs.next().unwrap().as_str();
+
+    let mut args = Vec::new();
+    
+    for pair in pairs {
+        args.push(parse_expr(pair.into_inner(), parser)?)
+    }
+
+    Ok(Node::Function(Function::from_string(function_name)?, args))
+}
+
+fn parse_expr(pairs: Pairs<Rule>, parser: &PrattParser<Rule>) -> Result<Node, Error> {
+    parser
+    .map_primary(|primary| {
+        match primary.as_rule() {
+            Rule::Complex => parse_complex(primary.into_inner()),
+            Rule::Real => parse_real(primary),
+            Rule::FunctionCall => parse_function_call(primary.into_inner(), parser),
+            Rule::Expr => parse_expr(primary.into_inner(), parser),
+            _ => panic!("Unexpected Node {:?}", primary.as_rule()),
+    }})
+    .map_prefix(|op, rhs| {
+        let op = parse_prefix(op)?;
+        Ok(Node::PrefixOperation { op, rhs: Box::new(rhs?) })
+    })
+    .map_infix(|lhs, op, rhs| {
+        let op = parse_infix(op)?;
+        Ok(Node::BinaryOperation { lhs: Box::new(lhs?), op, rhs: Box::new(rhs?) })
+    })
+    .map_postfix(|lhs, op| {
+        let op = parse_postfix(op)?;
+        Ok(Node::PostOperation { lhs: Box::new(lhs?), op})
+    })
+    .parse(pairs)
 }
 
 #[derive(pest_derive::Parser)]

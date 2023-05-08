@@ -21,19 +21,12 @@
  *   SOFTWARE.
  */
 
-
 use std::{time::SystemTime, ops::{Mul, Div}};
-
-use complex::Complex;
-use graph::{Graph};
+use math::graph::Graph;
 use minifb::{Window, WindowOptions, Key};
+ 
 
-use crate::equation::Equation;
-
-mod complex;
-mod equation;
-mod graph;
-
+ 
 const WIDTH: usize = 600;
 const HEIGHT: usize = 400;
 
@@ -100,8 +93,8 @@ fn main() {
         graph.draw_x(&|x| diff(|x| 3.0*x*x-4.0*x*x*x+x-1.0)(x));
         graph.draw_x(&|x| diff(diff(|x| 3.0*x*x-4.0*x*x*x+x-1.0))(x));
         graph.draw_x(&|x| diff(diff(diff(|x| 3.0*x*x-4.0*x*x*x+x-1.0)))(x));*/
-        //graph.draw(&|x, y| ((x / ((time.elapsed().unwrap().as_secs_f64()/1.0).sin()*10.0+15.0)).sin() * 100.0 + 200.0 - y).abs() < 2.0);
-        //graph.draw(&|x, y| (x-100.0).powi(2) + (y-100.0).powi(2) < 2000.0);
+        graph.draw(&|x, y| ((x / ((time.elapsed().unwrap().as_secs_f64()/1.0).sin()*10.0+15.0)).sin() * 100.0 + 200.0 - y).abs() < 2.0);
+        graph.draw(&|x, y| (x-100.0).powi(2) + (y-100.0).powi(2) < 2000.0);
         //graph.draw(&|x, y| mandelbrot(x, y) == 100);
         window
         .update_with_buffer(&graph.pixels(), WIDTH, HEIGHT)

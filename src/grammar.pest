@@ -1,11 +1,33 @@
-Program = {SOI ~ (Expr)* ~ EOI}
+Program = _{SOI ~ (Expr)* ~ EOI}
+
 ImgUnit = {"i" | "I"}
 Real = {ASCII_DIGIT+}
-Complex = {(Real ~ ImgUnit?) | ImgUnit}
-Expr = {NonBinaryExpr ~ (BinaryOperator ~ NonBinaryExpr)*}
-NonBinaryExpr = {UnaryExpr | ("(" ~ Expr ~ ")" ) | Complex}
-BinaryOperator = {"+" | "-" | "*" | "/" | "==" | "<=" | "<" | ">=" | ">" | "^" }
-UnaryExpr = {UnaryOperator ~ Expr}
-UnaryOperator = {"+" | "-"}
+Complex = {(Real ~ ImgUnit) | ImgUnit}
+Number = _{Complex | Real}
+
+BaseExpr = _{Number | FunctionCall | "("~ Expr ~")"}
+Expr = { UnaryPrefixOperator* ~ BaseExpr ~ UnaryPostfixOperator* ~ (BinaryOperator ~ UnaryPrefixOperator* ~ BaseExpr ~ UnaryPostfixOperator* )* }
+
+BinaryOperator = _{Add | Sub | Mul | Div | Mod | Pow}
+UnaryPrefixOperator = _{Plus | Neg}
+UnaryPostfixOperator = _{Factorial}
+
+Neg = {"-"}
+Plus = {"+"}
+Add = {"+"}
+Sub = {"-"}
+Mul = {"*"}
+Div = {"/"}
+Pow = {"^"}
+Mod = {"%"}
+LessThen = {"<"}
+GreaterThen = {">"}
+LessEqualThen = {"<="}
+GreaterEqualThen = {">="}
+Factorial = {"!"}
+
+Iden = {ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
+FunctionCall = {Iden ~ "(" ~ (Expr ~ ("," ~ Expr )* ~ ")" | ")") }
+
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!"\n" ~ ANY)* ~ NEWLINE) }
 WHITESPACE = _{ " " | "\t" | "\n" | "\r"}
