@@ -130,7 +130,6 @@ impl Vars {
 }
 
 #[derive(Debug, Copy, Clone)]
-
 pub enum Function {
     Sin,
     Cos,

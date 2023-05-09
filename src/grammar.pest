@@ -1,7 +1,7 @@
 Program = _{SOI ~ (Expr)* ~ EOI}
 
 ImgUnit = {"i" | "I"}
-Real = {ASCII_DIGIT+}
+Real = {ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)?}
 Complex = {(Real ~ ImgUnit) | ImgUnit}
 Number = _{Complex | Real}
 

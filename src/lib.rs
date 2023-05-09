@@ -112,11 +112,28 @@ mod tests {
 
     #[test]
     fn abs() {
-        let s = "|x|";
+        let s = "|i + x|";
         let mut eq = Equation::new(s);
         for x in -100..100 {
             eq.vars.set_real("x", x as f64);
             println!("{}", eq.sum().unwrap());
         }
+    }
+
+    #[test]
+    fn sqrt() {
+        let s = "sqrt(-1+0i)";
+        let mut eq = Equation::new(s);
+        for x in -100..100 {
+            eq.vars.set_real("x", x as f64);
+            println!("{}", eq.sum().unwrap());
+        }
+    }
+
+    #[test]
+    fn decimal() {
+        let s = "1.3";
+        let mut eq = Equation::new(s);
+        println!("{}", eq.sum().unwrap());
     }
 }
