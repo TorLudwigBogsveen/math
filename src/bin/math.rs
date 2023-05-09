@@ -81,7 +81,7 @@ fn main() {
         }
         graph.clear();
         
-        graph.draw_x(&mut eq);
+        //graph.draw_x(&mut eq);
         //graph.draw_x(&mut |x|x*x + 4.0*x - 8.0);
         //graph.draw_x(&|x|x*x);
         //graph.draw_argb(&|x, y| mandelbrot_color(x, y));
@@ -99,7 +99,7 @@ fn main() {
         graph.draw_x(&|x| diff(diff(|x| 3.0*x*x-4.0*x*x*x+x-1.0))(x));
         graph.draw_x(&|x| diff(diff(diff(|x| 3.0*x*x-4.0*x*x*x+x-1.0)))(x));*/
         //graph.draw(&|x, y| ((x / ((time.elapsed().unwrap().as_secs_f64()/1.0).sin()*10.0+15.0)).sin() * 100.0 + 200.0 - y).abs() < 2.0);
-        //graph.draw(&|x, y| (x-100.0).powi(2) + (y-100.0).powi(2) < 2000.0);
+        graph.draw(&mut |x, y| (x-100.0).powi(2) + (y-100.0).powi(2) < 2000.0);
         //graph.draw(&|x, y| mandelbrot(x, y) == 100);
         window
         .update_with_buffer(&graph.pixels(), WIDTH, HEIGHT)
