@@ -5,7 +5,7 @@ Real = {ASCII_DIGIT+}
 Complex = {(Real ~ ImgUnit) | ImgUnit}
 Number = _{Complex | Real}
 
-BaseExpr = _{Number | FunctionCall | "("~ Expr ~")"}
+BaseExpr = _{Number | FunctionCall | "("~ Expr ~")" | Var}
 Expr = { UnaryPrefixOperator* ~ BaseExpr ~ UnaryPostfixOperator* ~ (BinaryOperator ~ UnaryPrefixOperator* ~ BaseExpr ~ UnaryPostfixOperator* )* }
 
 BinaryOperator = _{Add | Sub | Mul | Div | Mod | Pow}
@@ -28,6 +28,7 @@ Factorial = {"!"}
 
 Iden = {ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}
 FunctionCall = {Iden ~ "(" ~ (Expr ~ ("," ~ Expr )* ~ ")" | ")") }
+Var = { Iden }
 
 COMMENT = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") | ("//" ~ (!"\n" ~ ANY)* ~ NEWLINE) }
 WHITESPACE = _{ " " | "\t" | "\n" | "\r"}

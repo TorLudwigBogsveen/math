@@ -21,6 +21,8 @@
  *   SOFTWARE.
  */
 
+#![feature(unboxed_closures)]
+#![feature(fn_traits)]
 
 use std::{time::SystemTime};
 
@@ -58,5 +60,15 @@ mod tests {
         let s = "5 % 3";
         let eq = Equation::new(s);
         println!("{s} = {}", eq.sum().unwrap());
+    }
+
+    #[test]
+    fn var() {
+        let s = "1^2+4*x-8";
+        let mut eq = Equation::new(s);
+        for x in 0..10 {
+            eq.vars.set_real(String::from("x"), x as f64);
+            println!("{}", eq.sum().unwrap());
+        }
     }
 }

@@ -50,7 +50,7 @@ impl Graph {
         self.pixels.fill(0);
     }
 
-    pub fn draw_x(&mut self, f: &dyn Fn(f64) -> f64) {
+    pub fn draw_x(&mut self, f: &mut dyn FnMut(f64) -> f64) {
         for x in 0..(self.width*FACTOR) {
             let transformed_x = (x as f64 / FACTOR as f64 - self.origin.0) / WIDTH as f64 * self.view.0;
             let y = (f)(transformed_x) / self.view.1 * HEIGHT as f64 + self.origin.1;
@@ -58,14 +58,14 @@ impl Graph {
         }
     }
 
-    pub fn draw_y(&mut self, f: &dyn Fn(f64) -> f64) {
+    pub fn draw_y(&mut self, f: &mut dyn FnMut(f64) -> f64) {
         for y in 0..(self.height*FACTOR) {
             let x = (f)(y as f64 / FACTOR as f64);
             self.plot(x as isize, (y / FACTOR) as isize, 0xFF_FF_FF_FF);
         }
     }
 
-    pub fn draw(&mut self, f: &dyn Fn(f64, f64) -> bool) {
+    pub fn draw(&mut self, f: &mut dyn FnMut(f64, f64) -> bool) {
         for y in 0..self.height {
             for x in 0..self.width {
                 if f(x as f64, y as f64) {
@@ -75,7 +75,7 @@ impl Graph {
         }
     }
 
-    pub fn draw_argb(&mut self, f: &dyn Fn(f64, f64) -> u32) {
+    pub fn draw_argb(&mut self, f: &mut dyn FnMut(f64, f64) -> u32) {
         for y in 0..self.height {
             for x in 0..self.width {
                 self.plot(x as isize, y as isize, f(x as f64, y as f64));

@@ -22,7 +22,7 @@
  */
 
 use core::panic;
-use std::{fmt::Display};
+use std::{fmt::Display, collections::HashMap, hash::Hash};
 
 use pest::{iterators::{Pair, Pairs}, Parser, pratt_parser::{PrattParser, Op, Assoc}};
 
@@ -43,18 +43,90 @@ impl std::error::Error for Error {}
 
 #[derive(Debug)]
 pub struct Equation {
-    base: Node
+    base: Node,
+    pub vars: Vars,
 }
 
 impl Equation {
     pub fn new(equation: &str) -> Equation {
         Equation {
             base: tokenize(equation),
+            vars: Vars::new(),
         }
     }
 
     pub fn sum(&self) -> Result<Node, Error> {
-        self.base.sum()
+        self.base.sum(&self.vars)
+    }
+}
+
+impl FnMut<(f64,)> for Equation {
+    extern "rust-call" fn call_mut(&mut self, args: (f64,)) -> f64 {
+        self.vars.set_real("x".to_string(), args.0);
+        match self.sum() {
+            Ok(node) => {
+                match node {
+                    Node::Real(val) => val,
+                    _ => panic!(),
+                }
+            },
+            Err(err) => panic!("{:?}", err),
+        }
+    }
+}
+
+impl FnOnce<(f64,)> for Equation {
+    type Output = f64;
+
+    extern "rust-call" fn call_once(mut self, args: (f64,)) -> f64 {
+        (self)(args.0)
+    }
+}
+
+#[derive(Debug)]
+pub struct Vars {
+    vars: HashMap<String, Node>   
+}
+
+impl Vars {
+    fn new() -> Self {
+        Self {
+            vars: HashMap::new()
+        }
+    }
+
+    pub fn set_real(&mut self, var: String, val: f64) -> Option<Node> {
+        self.vars.insert(var, Node::Real(val))
+    }
+
+    pub fn set_complex(&mut self, var: String, val: Complex) -> Option<Node> {
+        self.vars.insert(var, Node::Complex(val))
+    }
+
+    pub fn get(&self, var: &str) -> Option<Node> {
+        self.vars.get(var).map(|node| node.clone())
+    }
+
+    pub fn get_real(&self, var: &str) -> Option<f64> {
+        if let Some(node) = self.vars.get(var) {
+            match node {
+                Node::Real(val) => Some(*val),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn get_complex(&self, var: &str) -> Option<Complex> {
+        if let Some(node) = self.vars.get(var) {
+            match node {
+                Node::Complex(val) => Some(*val),
+                _ => None,
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -210,18 +282,20 @@ pub enum Node {
     BinaryOperation{lhs: Box<Node>, op: BinaryOperation, rhs: Box<Node>},
     PostOperation{lhs: Box<Node>, op: PostfixOperation},
     Function(Function, Vec<Node>),
+    Var(String),
     Equals,
 }
 
 impl Node {
-    fn sum(&self) -> Result<Node, Error> {
+    fn sum(&self, vars: &Vars) -> Result<Node, Error> {
         Ok(match self {
             Node::Real(val) => Node::Real(*val),
             Node::Complex(val) => Node::Complex(*val),
-            Node::PrefixOperation { op, rhs } => op.eval(&rhs.sum()?)?,
-            Node::BinaryOperation { lhs, op, rhs } => op.eval(&lhs.sum()?, &rhs.sum()?)?,
-            Node::PostOperation { lhs, op } => op.eval(&lhs.sum()?)?,
-            Node::Function(func, args) => func.eval(&args.into_iter().map(|node| node.sum()).collect::<Result<Vec<Node>, Error>>()?)?,
+            Node::PrefixOperation { op, rhs } => op.eval(&rhs.sum(vars)?)?,
+            Node::BinaryOperation { lhs, op, rhs } => op.eval(&lhs.sum(vars)?, &rhs.sum(vars)?)?,
+            Node::PostOperation { lhs, op } => op.eval(&lhs.sum(vars)?)?,
+            Node::Function(func, args) => func.eval(&args.into_iter().map(|node| node.sum(vars)).collect::<Result<Vec<Node>, Error>>()?)?,
+            Node::Var(var) => vars.get(var).ok_or(Error::ParseError)?,
             Node::Equals => todo!(),
         })
     }
@@ -236,6 +310,7 @@ impl Display for Node {
             Node::BinaryOperation { lhs, op, rhs } => todo!(),
             Node::PostOperation { lhs, op } => todo!(),
             Node::Function(_, _) => todo!(),
+            Node::Var(_) => todo!(),
             Node::Equals => todo!(),
         }
     }
@@ -333,6 +408,10 @@ fn parse_function_call(mut pairs: Pairs<Rule>, parser: &PrattParser<Rule>) -> Re
     Ok(Node::Function(Function::from_string(function_name)?, args))
 }
 
+fn parse_var(pair: Pair<Rule>) -> Result<Node, Error> {
+    Ok(Node::Var(pair.as_str().to_string()))
+}
+
 fn parse_expr(pairs: Pairs<Rule>, parser: &PrattParser<Rule>) -> Result<Node, Error> {
     parser
     .map_primary(|primary| {
@@ -340,6 +419,7 @@ fn parse_expr(pairs: Pairs<Rule>, parser: &PrattParser<Rule>) -> Result<Node, Er
             Rule::Complex => parse_complex(primary.into_inner()),
             Rule::Real => parse_real(primary),
             Rule::FunctionCall => parse_function_call(primary.into_inner(), parser),
+            Rule::Var => parse_var(primary),
             Rule::Expr => parse_expr(primary.into_inner(), parser),
             _ => panic!("Unexpected Node {:?}", primary.as_rule()),
     }})
