@@ -22,7 +22,7 @@
  */
 
 use core::panic;
-use std::{fmt::Display, collections::HashMap, hash::Hash};
+use std::{fmt::Display, collections::HashMap, hash::Hash, f64::consts::{PI, TAU, E}};
 
 use pest::{iterators::{Pair, Pairs}, Parser, pratt_parser::{PrattParser, Op, Assoc}};
 
@@ -61,7 +61,7 @@ impl Equation {
     
     pub fn call_on(&mut self, vars: &[(&str, f64)]) -> f64 {
         for (var, val) in vars {
-            self.vars.set_real(var.to_string(), *val);
+            self.vars.set_real(var, *val);
         }
         match self.sum() {
             Ok(node) => {
@@ -82,17 +82,24 @@ pub struct Vars {
 
 impl Vars {
     fn new() -> Self {
-        Self {
+        let mut s = Self {
             vars: HashMap::new()
-        }
+        };
+
+        s.set_real("PI", PI);
+        s.set_real("TAU", TAU);
+        s.set_real("e", E);
+        s.set_real("phi", (1.0 + (5.0 as f64).sqrt()) / 2.0);
+
+        s
     }
 
-    pub fn set_real(&mut self, var: String, val: f64) -> Option<Node> {
-        self.vars.insert(var, Node::Real(val))
+    pub fn set_real(&mut self, var: &str, val: f64) -> Option<Node> {
+        self.vars.insert(var.to_lowercase(), Node::Real(val))
     }
 
-    pub fn set_complex(&mut self, var: String, val: Complex) -> Option<Node> {
-        self.vars.insert(var, Node::Complex(val))
+    pub fn set_complex(&mut self, var: &str, val: Complex) -> Option<Node> {
+        self.vars.insert(var.to_lowercase(), Node::Complex(val))
     }
 
     pub fn get(&self, var: &str) -> Option<Node> {
@@ -100,7 +107,7 @@ impl Vars {
     }
 
     pub fn get_real(&self, var: &str) -> Option<f64> {
-        if let Some(node) = self.vars.get(var) {
+        if let Some(node) = self.vars.get(&var.to_lowercase()) {
             match node {
                 Node::Real(val) => Some(*val),
                 _ => None,
@@ -111,7 +118,7 @@ impl Vars {
     }
 
     pub fn get_complex(&self, var: &str) -> Option<Complex> {
-        if let Some(node) = self.vars.get(var) {
+        if let Some(node) = self.vars.get(&var.to_lowercase()) {
             match node {
                 Node::Complex(val) => Some(*val),
                 _ => None,
@@ -131,6 +138,17 @@ pub enum Function {
     ArcSin,
     ArcCos,
     ArcTan,
+    Sqrt,
+    Round,
+    Floor,
+    Ceil,
+    Log,
+    Log10,
+    Log2,
+    Ln,
+    Min,
+    Max,
+    Abs,
 }
 
 impl Function {
@@ -143,7 +161,47 @@ impl Function {
                 Self::ArcSin => num.asin(),
                 Self::ArcCos => num.acos(),
                 Self::ArcTan => num.atan(),
+                Self::Sqrt => num.sqrt(),
+                Self::Round => num.round(),
+                Self::Floor => num.floor(),
+                Self::Ceil => num.ceil(),
+                Self::Log => num.log10(),
+                Self::Log10 => num.log10(),
+                Self::Log2 => num.log2(),
+                Self::Ln => num.ln(),
+                Self::Abs => num.abs(),
+                Self::Min | Self::Max => Err(Error::ParseError)?,
             }),
+            [Node::Complex(num)] => match self {
+                Self::Sin => todo!(),
+                Self::Cos => todo!(),
+                Self::Tan => todo!(),
+                Self::ArcSin => todo!(),
+                Self::ArcCos => todo!(),
+                Self::ArcTan => todo!(),
+                Self::Sqrt => Node::Complex(num.sqrt()),
+                Self::Round => Node::Complex(num.round()),
+                Self::Floor => Node::Complex(num.floor()),
+                Self::Ceil => Node::Complex(num.ceil()),
+                Self::Abs => Node::Real(num.mag()),
+                Self::Log => todo!(),
+                Self::Log10 => todo!(),
+                Self::Log2 => todo!(),
+                Self::Ln => todo!(),
+                Self::Min | Self::Max => Err(Error::ParseError)?,
+                
+            },
+            [Node::Real(num), Node::Real(num2)] => Node::Real(match self {
+                Self::Log => num2.log(num),
+                Self::Min => num.min(num2),
+                Self::Max => num.max(num2),
+                _ => Err(Error::ParseError)?,
+            }),
+            [Node::Complex(num), Node::Complex(num2)] => match self {
+                Self::Min => Node::Complex(if num.magsq() < num2.magsq() { num } else { num2 }),
+                Self::Max => Node::Complex(if num.magsq() > num2.magsq() { num } else { num2 }),
+                _ => Err(Error::ParseError)?,
+            },
             _ => Err(Error::ParseError)?
         };
 
@@ -158,6 +216,17 @@ impl Function {
             "arcsin" => Self::ArcSin,
             "arccos" => Self::ArcCos,
             "arctan" => Self::ArcTan,
+            "sqrt" => Self::Sqrt,
+            "round" => Self::Round,
+            "floor" => Self::Floor,
+            "ceil" => Self::Ceil,
+            "log" => Self::Log,
+            "log10" => Self::Log10,
+            "log2" => Self::Log2,
+            "ln" => Self::Ln,
+            "min" => Self::Min,
+            "max" => Self::Max,
+            "abs" => Self::Abs,
             _ => Err(Error::ParseError)?
         })
     }
@@ -172,6 +241,17 @@ impl Display for Function {
             Self::ArcSin => write!(f, "arcsin"),
             Self::ArcCos => write!(f, "arccos"),
             Self::ArcTan => write!(f, "arctan"),
+            Self::Sqrt => write!(f, "sqrt"),
+            Self::Round => write!(f, "round"),
+            Self::Floor => write!(f, "floor"),
+            Self::Ceil => write!(f, "ceil"),
+            Self::Log => write!(f, "log"),
+            Self::Log10 => write!(f, "log10"),
+            Self::Log2 => write!(f, "log2"),
+            Self::Ln => write!(f, "ln"),
+            Self::Min => write!(f, "min"),
+            Self::Max => write!(f, "max"),
+            Self::Abs => write!(f, "abs"),
         }
     }
 }
@@ -412,6 +492,7 @@ fn parse_expr(pairs: Pairs<Rule>, parser: &PrattParser<Rule>) -> Result<Node, Er
             Rule::Real => parse_real(primary),
             Rule::FunctionCall => parse_function_call(primary.into_inner(), parser),
             Rule::Var => parse_var(primary),
+            Rule::Abs => Ok(Node::Function(Function::Abs, vec![parse_expr(primary.into_inner(), parser)?])),
             Rule::Expr => parse_expr(primary.into_inner(), parser),
             _ => panic!("Unexpected Node {:?}", primary.as_rule()),
     }})

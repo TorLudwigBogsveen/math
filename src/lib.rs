@@ -55,7 +55,67 @@ mod tests {
         let s = "1^2+4*x-8";
         let mut eq = Equation::new(s);
         for x in 0..10 {
-            eq.vars.set_real(String::from("x"), x as f64);
+            eq.vars.set_real("x", x as f64);
+            println!("{}", eq.sum().unwrap());
+        }
+    }
+
+    #[test]
+    fn pi() {
+        let s = "pi^(i*x)";
+        let mut eq = Equation::new(s);
+        for x in 0..10 {
+            eq.vars.set_real("x", x as f64);
+            println!("{}", eq.sum().unwrap());
+        }
+    }
+
+    #[test]
+    fn phi() {
+        let s = "round((phi^x)/sqrt(5))";
+        let mut eq = Equation::new(s);
+        for x in 0..100 {
+            eq.vars.set_real("x", x as f64);
+            println!("{}", eq.sum().unwrap());
+        }
+    }
+
+    #[test]
+    fn log() {
+        let s = "log(x, x^10)";
+        let mut eq = Equation::new(s);
+        for x in 0..100 {
+            eq.vars.set_real("x", x as f64);
+            println!("{}", eq.sum().unwrap());
+        }
+    }
+
+    #[test]
+    fn min() {
+        let s = "min(3*x, 100)";
+        let mut eq = Equation::new(s);
+        for x in 0..100 {
+            eq.vars.set_real("x", x as f64);
+            println!("{}", eq.sum().unwrap());
+        }
+    }
+
+    #[test]
+    fn max() {
+        let s = "max(3*x, 100)";
+        let mut eq = Equation::new(s);
+        for x in 0..100 {
+            eq.vars.set_real("x", x as f64);
+            println!("{}", eq.sum().unwrap());
+        }
+    }
+
+    #[test]
+    fn abs() {
+        let s = "|x|";
+        let mut eq = Equation::new(s);
+        for x in -100..100 {
+            eq.vars.set_real("x", x as f64);
             println!("{}", eq.sum().unwrap());
         }
     }

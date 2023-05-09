@@ -50,6 +50,22 @@ impl Complex {
         self.magsq().sqrt()
     }
 
+    pub fn floor(&self) -> Complex {
+        Complex { real: self.real.floor(), img: self.img.floor() }
+    }
+
+    pub fn ceil(&self) -> Complex {
+        Complex { real: self.real.ceil(), img: self.img.ceil() }
+    }
+
+    pub fn round(&self) -> Complex {
+        Complex { real: self.real.round(), img: self.img.round() }
+    }
+
+    pub fn sqrt(&self) -> Complex {
+        self.powf(Complex { real: 0.5, img: 0.0 })
+    }
+
     pub fn powf(&self, rhs: Self) -> Complex {
         let a = self.abs().powf(rhs.real)/E.powf(self.arg()*rhs.img);
         let theta = self.arg()*rhs.real+self.abs().ln()*rhs.img;
