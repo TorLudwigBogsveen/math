@@ -8,13 +8,3 @@ edition = "2021"
 [dependencies]
 pest = "*"
 pest_derive = "*"
-minifb = "*"
-
-[dependencies.plotters]
-git = "https://github.com/plotters-rs/plotters"
-default_features = false
-features = ["ttf"]
-
-[dependencies.plotters-bitmap]
-default_features = false
-git = "https://github.com/plotters-rs/plotters"

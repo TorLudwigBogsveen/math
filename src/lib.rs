@@ -21,21 +21,9 @@
  *   SOFTWARE.
  */
 
-#![feature(unboxed_closures)]
-#![feature(fn_traits)]
-
-use std::{time::SystemTime};
-
-use graph::{Graph};
-use minifb::{Window, WindowOptions, Key};
-
 pub mod complex;
 pub mod equation;
-pub mod graph;
 pub mod functions;
-
-const WIDTH: usize = 600;
-const HEIGHT: usize = 400;
 
 #[cfg(test)]
 mod tests {

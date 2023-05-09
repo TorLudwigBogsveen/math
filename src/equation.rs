@@ -58,11 +58,11 @@ impl Equation {
     pub fn sum(&self) -> Result<Node, Error> {
         self.base.sum(&self.vars)
     }
-}
-
-impl FnMut<(f64,)> for Equation {
-    extern "rust-call" fn call_mut(&mut self, args: (f64,)) -> f64 {
-        self.vars.set_real("x".to_string(), args.0);
+    
+    pub fn call_on(&mut self, vars: &[(&str, f64)]) -> f64 {
+        for (var, val) in vars {
+            self.vars.set_real(var.to_string(), *val);
+        }
         match self.sum() {
             Ok(node) => {
                 match node {
@@ -72,14 +72,6 @@ impl FnMut<(f64,)> for Equation {
             },
             Err(err) => panic!("{:?}", err),
         }
-    }
-}
-
-impl FnOnce<(f64,)> for Equation {
-    type Output = f64;
-
-    extern "rust-call" fn call_once(mut self, args: (f64,)) -> f64 {
-        (self)(args.0)
     }
 }
 
