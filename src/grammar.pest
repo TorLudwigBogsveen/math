@@ -8,7 +8,7 @@ Number = _{Complex | Real}
 BaseExpr = _{Number | FunctionCall | Abs | "("~ Expr ~")" | Var}
 Expr = { UnaryPrefixOperator* ~ BaseExpr ~ UnaryPostfixOperator* ~ (BinaryOperator ~ UnaryPrefixOperator* ~ BaseExpr ~ UnaryPostfixOperator* )* }
 
-BinaryOperator = _{Add | Sub | Mul | Div | Mod | Pow}
+BinaryOperator = _{Add | Sub | Mul | Div | Mod | Pow | LessEqualTo | GreaterEqualTo | LessThan | GreaterThan | Equal}
 UnaryPrefixOperator = _{Plus | Neg}
 UnaryPostfixOperator = _{Factorial}
 
@@ -20,10 +20,11 @@ Mul = {"*"}
 Div = {"/"}
 Pow = {"^"}
 Mod = {"%"}
-LessThen = {"<"}
-GreaterThen = {">"}
-LessEqualThen = {"<="}
-GreaterEqualThen = {">="}
+LessThan = {"<"}
+GreaterThan = {">"}
+LessEqualTo = {"<="}
+GreaterEqualTo = {">="}
+Equal = {"="}
 Factorial = {"!"}
 
 Iden = {ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}

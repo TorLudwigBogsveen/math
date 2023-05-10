@@ -136,4 +136,11 @@ mod tests {
         let mut eq = Equation::new(s);
         println!("{}", eq.sum().unwrap());
     }
+
+    #[test]
+    fn equal() {
+        let s = "0.5 * 2 = 1.0";
+        let mut eq = Equation::new(s);
+        println!("{}", eq.sum().unwrap());
+    }
 }

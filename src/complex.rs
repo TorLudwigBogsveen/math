@@ -21,7 +21,7 @@
  *   SOFTWARE.
  */
 
-use std::{ops::{Mul, Div, Sub, Add, DivAssign, MulAssign, SubAssign, AddAssign, Deref}, fmt::Display, f64::consts::E};
+use std::{ops::{Mul, Div, Sub, Add, DivAssign, MulAssign, SubAssign, AddAssign}, fmt::Display, f64::consts::E};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Complex {

@@ -26,7 +26,7 @@ use std::{fmt::Display, collections::HashMap, hash::Hash, f64::consts::{PI, TAU,
 
 use pest::{iterators::{Pair, Pairs}, Parser, pratt_parser::{PrattParser, Op, Assoc}};
 
-use crate::{complex::Complex, functions::factorial};
+use crate::{complex::Complex, functions::{factorial, differentiate, equal_f64}};
 
 #[derive(Debug)]
 pub enum Error {
@@ -59,19 +59,11 @@ impl Equation {
         self.base.sum(&self.vars)
     }
     
-    pub fn call_on(&mut self, vars: &[(&str, f64)]) -> f64 {
+    pub fn call_on(&mut self, vars: &[(&str, f64)]) -> Node {
         for (var, val) in vars {
             self.vars.set_real(var, *val);
         }
-        match self.sum() {
-            Ok(node) => {
-                match node {
-                    Node::Real(val) => val,
-                    _ => panic!(),
-                }
-            },
-            Err(err) => panic!("{:?}", err),
-        }
+        self.sum().unwrap() 
     }
 }
 
@@ -148,10 +140,11 @@ pub enum Function {
     Min,
     Max,
     Abs,
+    //Diff,
 }
 
 impl Function {
-    fn eval(&self, args: &Vec<Node>) -> Result<Node, Error> {
+    fn eval(&self, vars: &Vars, args: &Vec<Node>) -> Result<Node, Error> {
         let val = match args[..] {
             [Node::Real(num)] => Node::Real(match self {
                 Self::Sin => num.sin(),
@@ -169,6 +162,7 @@ impl Function {
                 Self::Log2 => num.log2(),
                 Self::Ln => num.ln(),
                 Self::Abs => num.abs(),
+                //Self::Diff => differentiate(&mut vars.clone(), node, "x", num)?, //TODO: FIX
                 Self::Min | Self::Max => Err(Error::ParseError)?,
             }),
             [Node::Complex(num)] => match self {
@@ -282,20 +276,33 @@ pub enum BinaryOperation {
     Div,
     Pow,
     Mod,
+
+    LessThan,
+    GreaterThan,
+
+    LessEqualTo,
+    GreaterEqualTo,
+
+    Equal,
 }
 
 impl BinaryOperation {
     fn eval(self, lhs: &Node, rhs: &Node) -> Result<Node, Error> {
         Ok(match (lhs, rhs) {
             (Node::Real(lhs), Node::Real(rhs)) => 
-                Node::Real(match self {
-                    BinaryOperation::Add => lhs + rhs,
-                    BinaryOperation::Sub => lhs - rhs,
-                    BinaryOperation::Mul => lhs * rhs,
-                    BinaryOperation::Div => lhs / rhs,
-                    BinaryOperation::Mod => lhs.rem_euclid(*rhs),
-                    BinaryOperation::Pow => lhs.powf(*rhs),
-                }),
+                match self {
+                    BinaryOperation::Add => Node::Real(lhs + rhs),
+                    BinaryOperation::Sub => Node::Real(lhs - rhs),
+                    BinaryOperation::Mul => Node::Real(lhs * rhs),
+                    BinaryOperation::Div => Node::Real(lhs / rhs),
+                    BinaryOperation::Mod => Node::Real(lhs.rem_euclid(*rhs)),
+                    BinaryOperation::Pow => Node::Real(lhs.powf(*rhs)),
+                    BinaryOperation::LessThan => Node::Bool(*lhs < *rhs),
+                    BinaryOperation::GreaterThan => Node::Bool(*lhs > *rhs),
+                    BinaryOperation::LessEqualTo => Node::Bool(*lhs <= *rhs),
+                    BinaryOperation::GreaterEqualTo => Node::Bool(*lhs >= *rhs),
+                    BinaryOperation::Equal => Node::Bool(equal_f64(*lhs, *rhs)),
+                },
             (Node::Complex(lhs), Node::Complex(rhs)) =>
                 Node::Complex(match self {
                     BinaryOperation::Add => *lhs + *rhs,
@@ -304,6 +311,7 @@ impl BinaryOperation {
                     BinaryOperation::Div => *lhs / *rhs,
                     BinaryOperation::Mod => Err(Error::ParseError)?,
                     BinaryOperation::Pow => lhs.powf(*rhs),
+                    _ => panic!(),
                 }),
             (Node::Real(lhs), Node::Complex(rhs)) =>
                 Node::Complex(match self {
@@ -313,6 +321,7 @@ impl BinaryOperation {
                     BinaryOperation::Div => Complex { real: *lhs, img: 0.0 } / *rhs,
                     BinaryOperation::Mod => Err(Error::ParseError)?,
                     BinaryOperation::Pow => Complex { real: *lhs, img: 0.0 }.powf(*rhs),
+                    _ => panic!(),
                 }),
             (Node::Complex(lhs), Node::Real(rhs)) =>
                 Node::Complex(match self {
@@ -322,6 +331,7 @@ impl BinaryOperation {
                     BinaryOperation::Div => *lhs / Complex { real: *rhs, img: 0.0 },
                     BinaryOperation::Mod => Err(Error::ParseError)?,
                     BinaryOperation::Pow => lhs.powf(Complex { real: *rhs, img: 0.0 }),
+                    _ => panic!(),
                 }),
             _ => Err(Error::ParseError)?,
         })
@@ -347,6 +357,7 @@ impl PostfixOperation {
 
 #[derive(Debug, Clone)]
 pub enum Node {
+    Bool(bool),
     Real(f64),
     Complex(Complex),
     PrefixOperation{op: PrefixOperation, rhs: Box<Node>},
@@ -358,14 +369,37 @@ pub enum Node {
 }
 
 impl Node {
-    fn sum(&self, vars: &Vars) -> Result<Node, Error> {
+
+    pub fn as_f64(&self) -> Option<f64> {
+        match self {
+            Node::Real(val) => Some(*val),
+            _ => None,
+        }
+    }
+
+    pub fn as_complex(&self) -> Option<Complex> {
+        match self {
+            Node::Complex(val) => Some(*val),
+            _ => None,
+        }
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Node::Bool(val) => Some(*val),
+            _ => None,
+        }
+    }
+
+    pub fn sum(&self, vars: &Vars) -> Result<Node, Error> {
         Ok(match self {
+            Node::Bool(b) => Node::Bool(*b),
             Node::Real(val) => Node::Real(*val),
             Node::Complex(val) => Node::Complex(*val),
             Node::PrefixOperation { op, rhs } => op.eval(&rhs.sum(vars)?)?,
             Node::BinaryOperation { lhs, op, rhs } => op.eval(&lhs.sum(vars)?, &rhs.sum(vars)?)?,
             Node::PostOperation { lhs, op } => op.eval(&lhs.sum(vars)?)?,
-            Node::Function(func, args) => func.eval(&args.into_iter().map(|node| node.sum(vars)).collect::<Result<Vec<Node>, Error>>()?)?,
+            Node::Function(func, args) => func.eval(vars, &args.into_iter().map(|node| node.sum(vars)).collect::<Result<Vec<Node>, Error>>()?)?,
             Node::Var(var) => vars.get(var).ok_or(Error::ParseError)?,
             Node::Equals => todo!(),
         })
@@ -375,6 +409,7 @@ impl Node {
 impl Display for Node {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Node::Bool(b) => f.write_fmt(format_args!("{}", b)),
             Node::Real(val) => f.write_fmt(format_args!("{}", val)),
             Node::Complex(val) => f.write_fmt(format_args!("{}", val)),
             Node::PrefixOperation { op, rhs } => todo!(),
@@ -389,6 +424,10 @@ impl Display for Node {
 
 fn tokenize(part: &str) -> Node {
     let parser = PrattParser::<Rule>::new()
+    .op(
+        Op::infix(Rule::LessThan, Assoc::Left) | Op::infix(Rule::GreaterThan, Assoc::Left) | 
+        Op::infix(Rule::LessEqualTo, Assoc::Left) | Op::infix(Rule::GreaterEqualTo, Assoc::Left) | 
+        Op::infix(Rule::Equal, Assoc::Left))
     .op(Op::infix(Rule::Add, Assoc::Left) | Op::infix(Rule::Sub, Assoc::Left))
     .op(Op::infix(Rule::Mul, Assoc::Left) | Op::infix(Rule::Div, Assoc::Left) | Op::infix(Rule::Mod, Assoc::Left))
     .op(Op::infix(Rule::Pow, Assoc::Left))
@@ -455,7 +494,14 @@ fn parse_infix(pair: Pair<Rule>) -> Result<BinaryOperation, Error> {
         Rule::Div => Ok(BinaryOperation::Div),
         Rule::Mod => Ok(BinaryOperation::Mod),
         Rule::Pow => Ok(BinaryOperation::Pow),
-        
+
+        Rule::LessThan => Ok(BinaryOperation::LessThan),
+        Rule::GreaterThan => Ok(BinaryOperation::GreaterThan),
+        Rule::LessEqualTo => Ok(BinaryOperation::LessEqualTo),
+        Rule::GreaterEqualTo => Ok(BinaryOperation::GreaterEqualTo),
+
+        Rule::Equal => Ok(BinaryOperation::Equal),
+
         _ => panic!()
     }
 }
