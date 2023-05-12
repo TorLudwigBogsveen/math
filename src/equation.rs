@@ -553,7 +553,7 @@ fn parse_function_call(mut pairs: Pairs<Rule>, parser: &PrattParser<Rule>) -> Re
 }
 
 fn parse_var(pair: Pair<Rule>) -> Result<Node, Error> {
-    Ok(Node::Var(pair.as_str().to_string()))
+    Ok(Node::Var(pair.as_str().trim().to_string()))
 }
 
 fn parse_expr(pairs: Pairs<Rule>, parser: &PrattParser<Rule>) -> Result<Node, Error> {
