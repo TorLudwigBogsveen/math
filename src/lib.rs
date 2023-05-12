@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn and() {
-        let s = "1 < 2 nand 2 < 2";
+        let s = "1 > 2 and 2 = 2";
         let mut eq = Equation::new(s);
         println!("{}", eq.sum().unwrap());
     }

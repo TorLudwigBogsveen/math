@@ -30,7 +30,9 @@ use crate::{complex::Complex, functions::{factorial, differentiate, equal_f64}};
 
 #[derive(Debug)]
 pub enum Error {
-    ParseError
+    ParseError,
+    OperatorNotSupportedForTypes,
+    VarNotFound(String),
 }
 
 impl Display for Error {
@@ -263,7 +265,7 @@ impl PrefixOperation {
                     Self::Plus => Node::Real(*val),
                     Self::Neg => Node::Real(-*val),
                 }
-            _ => Err(Error::ParseError)?,
+            _ => Err(Error::OperatorNotSupportedForTypes)?,
         })
     }
 }
@@ -304,7 +306,7 @@ impl BinaryOperation {
                     Self::Nand => !(*lhs & *rhs),
                     Self::Nor => !(*lhs | *rhs),
                     Self::Xnor => !(*lhs ^ *rhs),
-                    _ => Err(Error::ParseError)?,
+                    _ => Err(Error::OperatorNotSupportedForTypes)?,
                 }),
             (Node::Real(lhs), Node::Real(rhs)) => 
                 match self {
@@ -319,7 +321,7 @@ impl BinaryOperation {
                     BinaryOperation::LessEqualTo => Node::Bool(*lhs <= *rhs),
                     BinaryOperation::GreaterEqualTo => Node::Bool(*lhs >= *rhs),
                     BinaryOperation::Equal => Node::Bool(equal_f64(*lhs, *rhs)),
-                    _ => Err(Error::ParseError)?,
+                    _ => Err(Error::OperatorNotSupportedForTypes)?,
                 },
             (Node::Complex(lhs), Node::Complex(rhs)) =>
                 Node::Complex(match self {
@@ -327,9 +329,9 @@ impl BinaryOperation {
                     BinaryOperation::Sub => *lhs - *rhs,
                     BinaryOperation::Mul => *lhs * *rhs,
                     BinaryOperation::Div => *lhs / *rhs,
-                    BinaryOperation::Mod => Err(Error::ParseError)?,
+                    BinaryOperation::Mod => Err(Error::OperatorNotSupportedForTypes)?,
                     BinaryOperation::Pow => lhs.powf(*rhs),
-                    _ => Err(Error::ParseError)?,
+                    _ => Err(Error::OperatorNotSupportedForTypes)?,
                 }),
             (Node::Real(lhs), Node::Complex(rhs)) =>
                 Node::Complex(match self {
@@ -337,9 +339,8 @@ impl BinaryOperation {
                     BinaryOperation::Sub => Complex { real: *lhs, img: 0.0 } - *rhs,
                     BinaryOperation::Mul => Complex { real: *lhs, img: 0.0 } * *rhs,
                     BinaryOperation::Div => Complex { real: *lhs, img: 0.0 } / *rhs,
-                    BinaryOperation::Mod => Err(Error::ParseError)?,
                     BinaryOperation::Pow => Complex { real: *lhs, img: 0.0 }.powf(*rhs),
-                    _ => Err(Error::ParseError)?,
+                    _ => Err(Error::OperatorNotSupportedForTypes)?,
                 }),
             (Node::Complex(lhs), Node::Real(rhs)) =>
                 Node::Complex(match self {
@@ -347,11 +348,10 @@ impl BinaryOperation {
                     BinaryOperation::Sub => *lhs - Complex { real: *rhs, img: 0.0 },
                     BinaryOperation::Mul => *lhs * Complex { real: *rhs, img: 0.0 },
                     BinaryOperation::Div => *lhs / Complex { real: *rhs, img: 0.0 },
-                    BinaryOperation::Mod => Err(Error::ParseError)?,
                     BinaryOperation::Pow => lhs.powf(Complex { real: *rhs, img: 0.0 }),
-                    _ => Err(Error::ParseError)?,
+                    _ => Err(Error::OperatorNotSupportedForTypes)?,
                 }),
-            _ => Err(Error::ParseError)?,
+            _ => Err(Error::OperatorNotSupportedForTypes)?,
         })
     }
 }
@@ -368,7 +368,7 @@ impl PostfixOperation {
                 match self {
                     Self::Factorial => Node::Real(factorial(*val as usize) as f64),
                 }
-            _ => Err(Error::ParseError)?,
+            _ => Err(Error::OperatorNotSupportedForTypes)?,
         })
     }
 }
@@ -418,7 +418,7 @@ impl Node {
             Node::BinaryOperation { lhs, op, rhs } => op.eval(&lhs.sum(vars)?, &rhs.sum(vars)?)?,
             Node::PostOperation { lhs, op } => op.eval(&lhs.sum(vars)?)?,
             Node::Function(func, args) => func.eval(vars, &args.into_iter().map(|node| node.sum(vars)).collect::<Result<Vec<Node>, Error>>()?)?,
-            Node::Var(var) => vars.get(var).ok_or(Error::ParseError)?,
+            Node::Var(var) => vars.get(var).ok_or(Error::VarNotFound(var.to_string()))?,
             Node::Equals => todo!(),
         })
     }
