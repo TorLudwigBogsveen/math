@@ -8,12 +8,17 @@ Number = _{Complex | Real}
 BaseExpr = _{Number | FunctionCall | Abs | "("~ Expr ~")" | Var}
 Expr = { UnaryPrefixOperator* ~ BaseExpr ~ UnaryPostfixOperator* ~ (BinaryOperator ~ UnaryPrefixOperator* ~ BaseExpr ~ UnaryPostfixOperator* )* }
 
-BinaryOperator = _{Add | Sub | Mul | Div | Mod | Pow | LessEqualTo | GreaterEqualTo | LessThan | GreaterThan | Equal}
+BinaryOperator = _{
+    Add | Sub | Mul | Div | Mod | Pow | LessEqualTo | 
+    GreaterEqualTo | LessThan | GreaterThan | Equal |
+    And | Or | Xor | Nand | Xnor | Nor
+}
 UnaryPrefixOperator = _{Plus | Neg}
 UnaryPostfixOperator = _{Factorial}
 
 Neg = {"-"}
 Plus = {"+"}
+
 Add = {"+"}
 Sub = {"-"}
 Mul = {"*"}
@@ -25,6 +30,14 @@ GreaterThan = {">"}
 LessEqualTo = {"<="}
 GreaterEqualTo = {">="}
 Equal = {"="}
+
+And = {"and"}
+Or = {"or"}
+Xor = {"xor"}
+Nand = {"nand"}
+Xnor = {"xnor"}
+Nor = {"nor"}
+
 Factorial = {"!"}
 
 Iden = {ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*}

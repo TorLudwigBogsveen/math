@@ -284,11 +284,28 @@ pub enum BinaryOperation {
     GreaterEqualTo,
 
     Equal,
+
+    And,
+    Nand,
+    Or,
+    Nor,
+    Xor,
+    Xnor,
 }
 
 impl BinaryOperation {
     fn eval(self, lhs: &Node, rhs: &Node) -> Result<Node, Error> {
         Ok(match (lhs, rhs) {
+            (Node::Bool(lhs), Node::Bool(rhs)) => 
+                Node::Bool(match self {
+                    Self::And => *lhs & *rhs,
+                    Self::Or => *lhs | *rhs,
+                    Self::Xor => *lhs ^ *rhs,
+                    Self::Nand => !(*lhs & *rhs),
+                    Self::Nor => !(*lhs | *rhs),
+                    Self::Xnor => !(*lhs ^ *rhs),
+                    _ => Err(Error::ParseError)?,
+                }),
             (Node::Real(lhs), Node::Real(rhs)) => 
                 match self {
                     BinaryOperation::Add => Node::Real(lhs + rhs),
@@ -302,6 +319,7 @@ impl BinaryOperation {
                     BinaryOperation::LessEqualTo => Node::Bool(*lhs <= *rhs),
                     BinaryOperation::GreaterEqualTo => Node::Bool(*lhs >= *rhs),
                     BinaryOperation::Equal => Node::Bool(equal_f64(*lhs, *rhs)),
+                    _ => Err(Error::ParseError)?,
                 },
             (Node::Complex(lhs), Node::Complex(rhs)) =>
                 Node::Complex(match self {
@@ -311,7 +329,7 @@ impl BinaryOperation {
                     BinaryOperation::Div => *lhs / *rhs,
                     BinaryOperation::Mod => Err(Error::ParseError)?,
                     BinaryOperation::Pow => lhs.powf(*rhs),
-                    _ => panic!(),
+                    _ => Err(Error::ParseError)?,
                 }),
             (Node::Real(lhs), Node::Complex(rhs)) =>
                 Node::Complex(match self {
@@ -321,7 +339,7 @@ impl BinaryOperation {
                     BinaryOperation::Div => Complex { real: *lhs, img: 0.0 } / *rhs,
                     BinaryOperation::Mod => Err(Error::ParseError)?,
                     BinaryOperation::Pow => Complex { real: *lhs, img: 0.0 }.powf(*rhs),
-                    _ => panic!(),
+                    _ => Err(Error::ParseError)?,
                 }),
             (Node::Complex(lhs), Node::Real(rhs)) =>
                 Node::Complex(match self {
@@ -331,7 +349,7 @@ impl BinaryOperation {
                     BinaryOperation::Div => *lhs / Complex { real: *rhs, img: 0.0 },
                     BinaryOperation::Mod => Err(Error::ParseError)?,
                     BinaryOperation::Pow => lhs.powf(Complex { real: *rhs, img: 0.0 }),
-                    _ => panic!(),
+                    _ => Err(Error::ParseError)?,
                 }),
             _ => Err(Error::ParseError)?,
         })
@@ -425,6 +443,10 @@ impl Display for Node {
 fn tokenize(part: &str) -> Node {
     let parser = PrattParser::<Rule>::new()
     .op(
+        Op::infix(Rule::Or, Assoc::Left) | Op::infix(Rule::Nor, Assoc::Left) |
+        Op::infix(Rule::And, Assoc::Left) | Op::infix(Rule::Nand, Assoc::Left) |
+        Op::infix(Rule::Xor, Assoc::Left) | Op::infix(Rule::Xnor, Assoc::Left))
+    .op(
         Op::infix(Rule::LessThan, Assoc::Left) | Op::infix(Rule::GreaterThan, Assoc::Left) | 
         Op::infix(Rule::LessEqualTo, Assoc::Left) | Op::infix(Rule::GreaterEqualTo, Assoc::Left) | 
         Op::infix(Rule::Equal, Assoc::Left))
@@ -433,8 +455,6 @@ fn tokenize(part: &str) -> Node {
     .op(Op::infix(Rule::Pow, Assoc::Left))
     .op(Op::prefix(Rule::Plus) | Op::prefix(Rule::Neg))
     .op(Op::postfix(Rule::Factorial));
-
-
 
     let mut pairs = match InternalParser::parse(Rule::Program, part) {
         Ok(pairs) => pairs,
@@ -501,6 +521,13 @@ fn parse_infix(pair: Pair<Rule>) -> Result<BinaryOperation, Error> {
         Rule::GreaterEqualTo => Ok(BinaryOperation::GreaterEqualTo),
 
         Rule::Equal => Ok(BinaryOperation::Equal),
+
+        Rule::And => Ok(BinaryOperation::And),
+        Rule::Nand => Ok(BinaryOperation::Nand),
+        Rule::Or => Ok(BinaryOperation::Or),
+        Rule::Nor => Ok(BinaryOperation::Nor),
+        Rule::Xor => Ok(BinaryOperation::Xor),
+        Rule::Xnor => Ok(BinaryOperation::Xnor),
 
         _ => panic!()
     }
