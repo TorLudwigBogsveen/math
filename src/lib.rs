@@ -150,4 +150,11 @@ mod tests {
         let mut eq = Equation::new(s);
         println!("{}", eq.sum().unwrap());
     }
+
+    #[test]
+    fn test() {
+        let s = "a and b";
+        let mut eq = Equation::new(s);
+        println!("{:?}", eq);
+    }
 }

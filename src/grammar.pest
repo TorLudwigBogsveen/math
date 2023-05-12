@@ -40,7 +40,7 @@ Nor = {"nor"}
 
 Factorial = {"!"}
 
-Iden = {ASCII_ALPHA ~ (!WHITESPACE ~ ASCII_ALPHANUMERIC | "_")*}
+Iden = @{ASCII_ALPHA ~ (!WHITESPACE ~ (ASCII_ALPHANUMERIC | "_"))*}
 Var = { Iden }
 
 FunctionCall = {Iden ~ "(" ~ (Expr ~ ("," ~ Expr )* ~ ")" | ")")}
