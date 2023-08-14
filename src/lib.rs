@@ -27,7 +27,7 @@ pub mod functions;
 
 #[cfg(test)]
 mod tests {
-    use crate::equation::Equation;
+    use crate::equation::{Equation, ImplStandardOperations, CustomOperations};
 
     #[test]
     fn math() {
@@ -156,5 +156,20 @@ mod tests {
         let s = "a and b";
         let mut eq = Equation::new(s);
         println!("{:?}", eq);
+    }
+
+    struct Distance;
+
+    impl CustomOperations for Distance {
+        fn equal_f64(lhs: f64, rhs: f64) -> crate::equation::Node {
+            crate::equation::Node::Real((lhs - rhs).abs())
+        }
+    }
+
+    #[test]
+    fn distance() {
+        let s = "1.0 = 2.0";
+        let eq = Equation::new(s);
+        println!("{:?}", eq.sum_custom::<Distance>());
     }
 }

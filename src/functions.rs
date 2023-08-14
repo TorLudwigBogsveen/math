@@ -22,29 +22,23 @@
  *   SOFTWARE.
  */
 
-use crate::equation::{Vars, Node, Error};
+use crate::equation::{Vars, Node, Error, CustomOperations};
 
 pub fn factorial(nth: usize) -> usize {
     if nth == 0 { 1 }
     else { nth * factorial(nth-1) }
 }
 
-pub fn differentiate(vars: &mut Vars, node: &Node, var: &str, x: f64) -> Result<f64, Error> {
+pub fn differentiate<C: CustomOperations>(vars: &mut Vars, node: &Node, var: &str, x: f64) -> Result<f64, Error> {
     vars.set_real(var, x);
-    let a = match node.sum(vars)? {
+    let a = match node.sum::<C>(vars)? {
         Node::Real(num) => num,
         _ => Err(Error::ParseError)?
     };
     vars.set_real(var, x+0.001);
-    let b = match node.sum(vars)? {
+    let b = match node.sum::<C>(vars)? {
         Node::Real(num) => num,
         _ => Err(Error::ParseError)?
     };
     Ok((b-a)/0.001)
-}
-
-pub fn equal_f64(a: f64, b: f64) -> bool {
-    let offset = 0.003;
-    let val = a - b;
-    val < offset && val > -offset
 }

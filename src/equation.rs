@@ -26,7 +26,8 @@ use std::{fmt::Display, collections::HashMap, hash::Hash, f64::consts::{PI, TAU,
 
 use pest::{iterators::{Pair, Pairs}, Parser, pratt_parser::{PrattParser, Op, Assoc}};
 
-use crate::{complex::Complex, functions::{factorial, differentiate, equal_f64}};
+use crate::{complex::Complex, functions::{factorial, differentiate}};
+
 
 #[derive(Debug)]
 pub enum Error {
@@ -57,15 +58,15 @@ impl Equation {
         }
     }
 
-    pub fn sum(&self) -> Result<Node, Error> {
-        self.base.sum(&self.vars)
+    pub fn sum_custom<C: CustomOperations>(&self) -> Result<Node, Error> {
+        self.base.sum::<C>(&self.vars)
     }
     
-    pub fn call_on(&mut self, vars: &[(&str, f64)]) -> Node {
+    pub fn call_on_custom<C: CustomOperations>(&mut self, vars: &[(&str, f64)]) -> Node {
         for (var, val) in vars {
             self.vars.set_real(var, *val);
         }
-        self.sum().unwrap() 
+        self.sum_custom::<C>().unwrap() 
     }
 }
 
@@ -270,6 +271,33 @@ impl PrefixOperation {
     }
 }
 
+pub trait CustomOperations {
+    fn equal_f64(lhs: f64, rhs: f64) -> Node {
+        let offset = 0.003;
+        let val = lhs - rhs;
+        Node::Bool(val < offset && val > -offset)
+    }
+}
+
+pub struct StandardOperations;
+
+pub trait ImplStandardOperations {
+    fn sum(&self) -> Result<Node, Error>;
+    fn call_on(&mut self, vars: &[(&str, f64)]) -> Node;
+}
+
+impl ImplStandardOperations for Equation {
+    fn sum(&self) -> Result<Node, Error> {
+        self.sum_custom::<StandardOperations>()
+    }
+
+    fn call_on(&mut self, vars: &[(&str, f64)]) -> Node {
+        self.call_on_custom::<StandardOperations>(vars)
+    }
+}
+
+impl CustomOperations for StandardOperations {}
+
 #[derive(Debug, Copy, Clone)]
 pub enum BinaryOperation {
     Add,
@@ -296,7 +324,7 @@ pub enum BinaryOperation {
 }
 
 impl BinaryOperation {
-    fn eval(self, lhs: &Node, rhs: &Node) -> Result<Node, Error> {
+    fn eval<T: CustomOperations>(self, lhs: &Node, rhs: &Node) -> Result<Node, Error> {
         Ok(match (lhs, rhs) {
             (Node::Bool(lhs), Node::Bool(rhs)) => 
                 Node::Bool(match self {
@@ -320,7 +348,7 @@ impl BinaryOperation {
                     BinaryOperation::GreaterThan => Node::Bool(*lhs > *rhs),
                     BinaryOperation::LessEqualTo => Node::Bool(*lhs <= *rhs),
                     BinaryOperation::GreaterEqualTo => Node::Bool(*lhs >= *rhs),
-                    BinaryOperation::Equal => Node::Bool(equal_f64(*lhs, *rhs)),
+                    BinaryOperation::Equal => T::equal_f64(*lhs, *rhs),
                     _ => Err(Error::OperatorNotSupportedForTypes)?,
                 },
             (Node::Complex(lhs), Node::Complex(rhs)) =>
@@ -409,15 +437,15 @@ impl Node {
         }
     }
 
-    pub fn sum(&self, vars: &Vars) -> Result<Node, Error> {
+    pub fn sum<C: CustomOperations>(&self, vars: &Vars) -> Result<Node, Error> {
         Ok(match self {
             Node::Bool(b) => Node::Bool(*b),
             Node::Real(val) => Node::Real(*val),
             Node::Complex(val) => Node::Complex(*val),
-            Node::PrefixOperation { op, rhs } => op.eval(&rhs.sum(vars)?)?,
-            Node::BinaryOperation { lhs, op, rhs } => op.eval(&lhs.sum(vars)?, &rhs.sum(vars)?)?,
-            Node::PostOperation { lhs, op } => op.eval(&lhs.sum(vars)?)?,
-            Node::Function(func, args) => func.eval(vars, &args.into_iter().map(|node| node.sum(vars)).collect::<Result<Vec<Node>, Error>>()?)?,
+            Node::PrefixOperation { op, rhs } => op.eval(&rhs.sum::<C>(vars)?)?,
+            Node::BinaryOperation { lhs, op, rhs } => op.eval::<C>(&lhs.sum::<C>(vars)?, &rhs.sum::<C>(vars)?)?,
+            Node::PostOperation { lhs, op } => op.eval(&lhs.sum::<C>(vars)?)?,
+            Node::Function(func, args) => func.eval(vars, &args.into_iter().map(|node| node.sum::<C>(vars)).collect::<Result<Vec<Node>, Error>>()?)?,
             Node::Var(var) => vars.get(var).ok_or(Error::VarNotFound(var.to_string()))?,
             Node::Equals => todo!(),
         })
